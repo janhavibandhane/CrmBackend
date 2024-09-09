@@ -6,6 +6,21 @@ import { ApiError } from "../utils/ApiError.js";
 import jwt from "jsonwebtoken"
 
 
+const generateAccessAndRefreshToken=async(userId)=>{
+    try {
+        const user=await User.findById(userId);
+        const accessToken=user.generateAccessToken();
+        const refreshToken=user.generateRefreshToken();
+
+        user.refreshToken=refreshToken
+        await user.save({validateBeforeSave:false})
+
+        return{accessToken,refreshToken}
+
+    } catch (error) {
+        throw new ApiError(500,"something went wrong while genrating access token and refresh token")
+    }
+}
 
 
 const registerUser = asyncHandler ( async (req,res)=>{
@@ -62,31 +77,93 @@ const registerUser = asyncHandler ( async (req,res)=>{
     );
 })
 
-const loginUser=asyncHandler( async (req,res)=>{
+const loginUser = asyncHandler(async (req, res) => {
 
-    //1.req-body ->data
-    const{username,email,password}=req.body;
+    // 1. req-body -> data
+    const { username, email, password } = req.body;
 
-     //2.username or email
-    if(!username && !email){
-        throw new ApiError(400,"USername and email requried");
+    console.log({ username, email, password }); // Debug: check incoming data
+
+    // 2. Either username or email is required
+    if (!username && !email) {
+        throw new ApiError(400, "Either username or email is required");
     }
 
-    //3.find user [by email or username]
-    const user=await User.findOne({
-        $or:[{username},{email}]
-    })
+    // 3. Find user [by email or username]
+    const user = await User.findOne({
+        $or: [{ username }, { email }]
+    });
 
-    if(!user){
-        throw new ApiError(400,"User not exist");
+    console.log(user); // Debug: check if user is found
+
+    if (!user) {
+        throw new ApiError(400, "User does not exist");
     }
 
-    const isPasswordCorrect=await user.isPasswordCorrect(password)
-    if(!isPasswordCorrect){
-        throw new ApiError(401,"Password invalid");
+    // 4. Check password
+    const isPasswordCorrect = await user.isPasswordCorrect(password);
+    
+    console.log(isPasswordCorrect); // Debug: check if password check passes
+
+    if (!isPasswordCorrect) {
+        throw new ApiError(401, "Invalid password");
     }
+
+    // 5. Generate access and refresh tokens
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id);
+
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+
+    console.log({ accessToken, refreshToken, loggedInUser }); // Debug: Check tokens and user
+
+    // 6. Send cookies (cookie will modify only by server means backend)
+    const options = {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Strict',  // For added security
+        maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days
+    };
+    return res
+        .status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
+        .json(
+            new ApiResponse(
+                200, {
+                    user: loggedInUser,
+                    accessToken,
+                    refreshToken
+                },
+                "User logged in successfully"
+            )
+        );
+});
+
+const logoutUser=asyncHandler(async(req,res)=>{
+    await User.findByIdAndUpdate(
+        req.user._id,{
+            $unset:{
+                refreshToken:1
+            }
+        },{
+            new:true
+        }
+    )
+    const options={
+        httpOnly:true,
+        secure:true
+    }
+    return res
+    .status(200)
+    .clearCookie("accessToken",options)
+       .clearCookie("refreshToken",options)
+       .json(
+        new ApiResponse (200,{},"User logout")
+       )
 })
 
 export{
     registerUser,
+    loginUser,
+    logoutUser
 };
