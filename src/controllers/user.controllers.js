@@ -156,14 +156,97 @@ const logoutUser=asyncHandler(async(req,res)=>{
     return res
     .status(200)
     .clearCookie("accessToken",options)
-       .clearCookie("refreshToken",options)
-       .json(
+    .clearCookie("refreshToken",options)
+    .json(
         new ApiResponse (200,{},"User logout")
        )
+})
+
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+    const { oldPassword, newPassword } = req.body;
+
+    // 1. Find user by ID
+    const user = await User.findById(req.user?._id);  // Ensure req.user is populated
+
+    // Check if user exists
+    if (!user) {
+        throw new ApiError(404, 'User not found');
+    }
+
+    // 2. Check if the old password is correct (coming from user.model.js)
+    const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+    if (!isPasswordCorrect) {
+        throw new ApiError(400, 'Invalid old password');
+    }
+
+    // 3. Update to the new password
+    user.password = newPassword;
+    await user.save({ validateBeforeSave: false });
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, 'Password changed successfully'));
+});
+
+const updateUserDetalis=asyncHandler(async(req,res)=>{
+    const {fullName,username,email}=req.body;
+
+    if(!fullName || !username || !email){
+        throw new ApiError(400,"Atlist one Filed requried")
+    }
+
+    const user=await User.findByIdAndUpdate(
+        req.user?._id,{
+            $set:{
+                fullName:fullName,
+                email:email,
+                username:username
+            }
+        },
+        {new:true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200,user,"User detalis update succesfully"))
+})
+
+const updateUserAvtar=asyncHandler(async(req,res)=>{
+    const avatarLocalPath=req.file?.path
+
+    if(!avatarLocalPath){
+        throw new ApiError(400,"Avatar file requred");
+    }
+
+    const avatar= await uploadOnClodinary(avatarLocalPath);
+
+    if(!avatar.url){
+        throw new ApiError(400,'Error while uploading avatar file on cloudinary');
+    }
+
+    const user=await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+           $set:{
+            avatar:avatar.url
+           }
+        },
+        {new:true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200,user,"Avatar filed changed succesfully")
+    )
 })
 
 export{
     registerUser,
     loginUser,
-    logoutUser
+    logoutUser,
+    changeCurrentPassword,
+    updateUserDetalis,
+    updateUserAvtar
 };
