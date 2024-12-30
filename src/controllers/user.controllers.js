@@ -4,6 +4,7 @@ import { uploadOnClodinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import jwt from "jsonwebtoken"
+import mongoose from "mongoose";
 
 
 const generateAccessAndRefreshToken=async(userId)=>{
@@ -21,7 +22,6 @@ const generateAccessAndRefreshToken=async(userId)=>{
         throw new ApiError(500,"something went wrong while genrating access token and refresh token")
     }
 }
-
 
 const registerUser = asyncHandler ( async (req,res)=>{
 
@@ -212,35 +212,129 @@ const updateUserDetalis=asyncHandler(async(req,res)=>{
     .json(new ApiResponse(200,user,"User detalis update succesfully"))
 })
 
-const updateUserAvtar=asyncHandler(async(req,res)=>{
-    const avatarLocalPath=req.file?.path
+const updateUserAvtar = asyncHandler(async (req, res) => {
+    console.log("Request Body:", req.body); // Log request body
+    console.log("File Received:", req.file); // Log uploaded file information
 
-    if(!avatarLocalPath){
-        throw new ApiError(400,"Avatar file requred");
+    const avatarLocalPath = req.file?.path;
+
+    if (!avatarLocalPath) {
+        throw new ApiError(400, "Avatar file required");
     }
 
-    const avatar= await uploadOnClodinary(avatarLocalPath);
+    const avatar = await uploadOnClodinary(avatarLocalPath);
 
-    if(!avatar.url){
-        throw new ApiError(400,'Error while uploading avatar file on cloudinary');
+    if (!avatar.url) {
+        throw new ApiError(400, 'Error while uploading avatar file on cloudinary');
     }
 
-    const user=await User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
-           $set:{
-            avatar:avatar.url
-           }
+            $set: {
+                avatar: avatar.url
+            }
         },
-        {new:true}
-    ).select("-password")
+        { new: true }
+    ).select("-password");
 
-    return res
-    .status(200)
-    .json(
-        new ApiResponse(200,user,"Avatar filed changed succesfully")
-    )
-})
+    return res.status(200).json(
+        new ApiResponse(200, user, "Avatar file changed successfully")
+    );
+});
+
+const SaveMettingDetalis = asyncHandler(async (req, res) => {
+    const { Meetingdetails, Meetingdate, Meetingtime } = req.body;
+
+    // 1. Validate input
+    if ([Meetingdetails, Meetingdate, Meetingtime].some((field) => !field?.trim())) {
+        throw new Error("All fields are required.");
+    }
+
+    // 2. Find the logged-in user
+    const userId = req.user._id; // Assume `req.user._id` is available after authentication
+    const user = await User.findById(userId);
+
+    if (!user) {
+        throw new Error("User not found.");
+    }
+
+    // 3. Add the meeting to the user's meetings array
+    user.meetings.push({
+        Meetingdetails,
+        Meetingdate,
+        Meetingtime,
+    });
+
+    // 4. Save the updated user document
+    await user.save();
+
+    // 5. Send a response
+    res.status(201).json({
+        message: "Meeting details saved successfully.",
+        meetings: user.meetings, // Return all meetings for this user
+    });
+});
+
+const getAllMeetings = asyncHandler(async (req, res) => {
+    const userId = req.user._id; // Assume `req.user._id` is available after authentication
+
+    // 1. Find the user
+    const user = await User.findById(userId);
+
+    if (!user) {
+        throw new Error("User not found.");
+    }
+
+    // 2. Return the meetings
+    res.status(200).json({
+        message: "Meetings retrieved successfully.",
+        meetings: user.meetings,
+    });
+});
+
+const deleteMeeting = asyncHandler(async (req, res) => {
+    const meetingId = req.params.meetingId.trim(); // Extract and trim the meeting ID from the route parameter
+
+    console.log("Meeting ID received:", meetingId);  // Debugging log
+
+    // Validate meetingId format (must be a valid ObjectId)
+    if (!mongoose.Types.ObjectId.isValid(meetingId)) {
+        return res.status(400).json({ error: "Invalid meeting ID format." });
+    }
+
+    const userId = req.user._id; // Ensure `req.user._id` is populated
+
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+        return res.status(404).json({ error: "User not found." });
+    }
+
+    // Log the user's meetings to check the structure
+    console.log("User's meetings:", user.meetings);
+
+    // Remove the meeting from the user's `meetings` array by matching meeting._id with meetingId
+    const meetingIndex = user.meetings.findIndex(meeting => meeting._id.toString() === meetingId);
+
+    // If no meeting is found
+    if (meetingIndex === -1) {
+        return res.status(404).json({ error: "Meeting not found." });
+    }
+
+    // Remove the meeting from the user's `meetings` array
+    user.meetings.splice(meetingIndex, 1);
+
+    // Save the updated user document
+    await user.save();
+
+    res.status(200).json({
+        message: "Meeting deleted successfully.",
+    });
+});
+
+
+
 
 export{
     registerUser,
@@ -248,5 +342,9 @@ export{
     logoutUser,
     changeCurrentPassword,
     updateUserDetalis,
-    updateUserAvtar
+    updateUserAvtar,
+    SaveMettingDetalis,
+    getAllMeetings,
+    deleteMeeting
+    
 };
