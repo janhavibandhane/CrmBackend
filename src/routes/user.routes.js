@@ -1,5 +1,7 @@
 import express from "express";
-import { registerUser,loginUser, logoutUser, changeCurrentPassword,updateUserDetalis, updateUserAvtar,SaveMettingDetalis, getAllMeetings, deleteMeeting } from "../controllers/user.controllers.js";
+import { registerUser,loginUser, logoutUser, changeCurrentPassword,updateUserDetalis, updateUserAvtar, } from "../controllers/user.controllers.js";
+import {SaveMeetingDetails, getAllMeetings, deleteMeeting,} from "../controllers/metting.controllers.js"
+import {getNoteByDate, saveOrUpdateNote} from "../controllers/calender.controllers.js"
 import {upload} from "../middlewares/multer.middlewares.js";
 import {verifyJWT} from '../middlewares/auth.middlewares.js';
 
@@ -29,9 +31,11 @@ router.put('/updateUserAvtar', verifyJWT, upload.single('avatar'), (req, res, ne
 
     next(); // Proceed to the actual controller
 }, updateUserAvtar);
-router.put('/SaveMettingDetalis',verifyJWT,SaveMettingDetalis)
+router.put('/SaveMettingDetalis',verifyJWT,SaveMeetingDetails)
 router.put('/getAllMeetings',verifyJWT,getAllMeetings)
 router.delete('/deleteMeeting/:meetingId', verifyJWT, deleteMeeting);
+router.post('/saveOrUpdateNote',verifyJWT,saveOrUpdateNote);
+router.get('/getNoteByDate',verifyJWT,getNoteByDate)
 
 
 

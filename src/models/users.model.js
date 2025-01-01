@@ -35,23 +35,8 @@ const userSchema = new Schema({
     refreshToken: {
         type: String,
     },
-    meetings: [
-        {
-            _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },
-            Meetingdetails: {
-                type: String,
-                required: true,
-            },
-            Meetingdate: {
-                type: Date,
-                required: true,
-            },
-            Meetingtime: {
-                type: String,
-                required: true,
-            },
-        },
-    ],
+  
+   
 });
 
 // Hash the password before saving the user
