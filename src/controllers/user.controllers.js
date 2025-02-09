@@ -82,7 +82,7 @@ const loginUser = asyncHandler(async (req, res) => {
     // 1. req-body -> data
     const { username, email, password } = req.body;
 
-    console.log({ username, email, password }); // Debug: check incoming data
+    // console.log({ username, email, password }); // Debug: check incoming data
 
     // 2. Either username or email is required
     if (!username && !email) {
@@ -244,37 +244,11 @@ const updateUserAvtar = asyncHandler(async (req, res) => {
 });
 
 
-
-// const saveOrUpdateNote = asyncHandler(async (req, res) => {
-//     const { date, notes } = req.body;
-//     const userId = req.user._id; // Assume user ID is available after authentication
-
-//     // Validate input
-//     if (!date || typeof notes !== "string") {
-//         throw new ApiError(400, "Date and notes are required");
-//     }
-
-//     // Save or update the note
-//     const calendarEntry = await User.findOneAndUpdate(
-//         { userId, date },
-//         { $set: { notes } },
-//         { new: true, upsert: true }
-//     );
-
-//     res.status(200).json(new ApiResponse(200, user, "Note saved successfully"));
-// });
-
-
-
-
 export{
     registerUser,
     loginUser,
     logoutUser,
     changeCurrentPassword,
     updateUserDetalis,
-    updateUserAvtar,
-    
-    // saveOrUpdateNote
-    
+    updateUserAvtar,   
 };
